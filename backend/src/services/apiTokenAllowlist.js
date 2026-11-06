@@ -14,6 +14,13 @@ const ENTRIES = [
   { method: 'GET', path: '/api/version', scope: null },
   { method: 'GET', path: '/api/api-tokens/self', scope: null },
 
+  // Stable, token-only read contract. Existing unversioned permissions stay intact.
+  { method: 'GET', path: '/api/v1/accounts', scope: 'read' },
+  { method: 'GET', path: '/api/v1/accounts/:uuid/folders', scope: 'read' },
+  { method: 'GET', path: '/api/v1/messages', scope: 'read' },
+  { method: 'GET', path: '/api/v1/messages/:uuid', scope: 'read' },
+  { method: 'GET', path: '/api/v1/search', scope: 'read' },
+
   // The response is narrowed for tokens (routes/accounts.js).
   { method: 'GET', path: '/api/accounts', scope: 'read' },
   { method: 'GET', path: '/api/accounts/:uuid/folders', scope: 'read' },

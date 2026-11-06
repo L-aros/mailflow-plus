@@ -1,0 +1,1048 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MailFlow Plus Read API",
+    "version": "1.0.0",
+    "description": "Stable versioned read adapter over existing MailFlow services. All endpoints require an enabled, valid API Token with read scope; browser cookies alone do not authenticate v1. Existing token limits apply: 600 requests/5 minutes/token, 1200/5 minutes/user, and 60 searches/minute/user shared across token search endpoints, separate from browser search. Unknown/repeated query parameters are rejected. Canonical method/path allowlisting occurs before route validation. Within v1, clients should ignore additional response fields. No schema migration, sending, deleting, attachment downloads or Webhooks are introduced."
+  },
+  "servers": [
+    {
+      "url": "https://mailflow.example.com",
+      "description": "Placeholder: replace with your MailFlow instance origin."
+    }
+  ],
+  "security": [
+    {
+      "ApiToken": []
+    }
+  ],
+  "externalDocs": {
+    "description": "Usage, resource identity, pagination, errors, examples and compatibility policy",
+    "url": "https://github.com/L-aros/mailflow-plus/blob/mailflow-plus/docs/api-v1.md"
+  },
+  "paths": {
+    "/api/v1/accounts": {
+      "get": {
+        "operationId": "listAccounts",
+        "summary": "List enabled accounts",
+        "description": "Lists only enabled accounts owned by the token user, ordered by configured sort order, creation time and ID. No connection credentials or settings are included.",
+        "x-required-scopes": [
+          "read"
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-repeated-query-parameters": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{id}/folders": {
+      "get": {
+        "operationId": "listAccountFolders",
+        "summary": "List account folder metadata",
+        "description": "Returns cached folder paths ordered by path after enforcing ownership and enabled status. An owned enabled account with no folder rows returns an empty page.",
+        "x-required-scopes": [
+          "read"
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-repeated-query-parameters": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Account UUID. A malformed path UUID is rejected by the token allowlist with 403 before route validation.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/messages": {
+      "get": {
+        "operationId": "listMessages",
+        "summary": "List message metadata",
+        "description": "Flat cached message rows. Without accountId, lists the unified INBOX of enabled accounts with include_in_unified_inbox enabled; folder must then be omitted or INBOX. Explicit account selection enforces owned and enabled status without unified-inbox fallback. Excludes deleted rows and hollow envelope placeholders. Ordinary order is date descending, ID ascending; the existing Snoozed view orders by wake time ascending (nulls last), date descending, ID ascending. Returns hasMore/nextOffset without total. Does not mark messages read or prefetch folder bodies.",
+        "x-required-scopes": [
+          "read"
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-repeated-query-parameters": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/AccountId"
+          },
+          {
+            "$ref": "#/components/parameters/Folder"
+          },
+          {
+            "$ref": "#/components/parameters/UnreadOnly"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/{id}": {
+      "get": {
+        "operationId": "readMessage",
+        "summary": "Read message content",
+        "description": "Returns a live cached row in an owned enabled account. Includes sanitized HTML/plain text and attachment metadata only. If both body representations are null, the existing mail engine fetches them even when envelope synchronization has already stored attachment metadata. A guarded cache update stores the result. A completed attachment-only fetch returns body {html:null,text:\"\"}; cached rereads use the confirmed empty text without another fetch. Does not mark read. The fetch waits at most 40 seconds; failure, timeout or a row changed during fetch returns 503. A timed-out operation may finish later, but this request does not cache that late result. Consumers choose HTML sandbox and remote-resource policy; no web UI image proxy/display preferences are applied.",
+        "x-required-scopes": [
+          "read"
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-repeated-query-parameters": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Message row UUID. A malformed path UUID is rejected by the token allowlist with 403 before route validation.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/BodyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "searchMessages",
+        "summary": "Search cached mail",
+        "description": "Uses the existing cached search service and the shared 60/minute token-user search budget. Enabled and authorized account scope matches listing, but folder scope follows q/in:/folder. The last in: overrides folder. Without explicit folder scope (including in:all), recognized Trash folders are excluded; explicit Trash queries can include them. Free-text terms AND across sender, subject, stored vector or capped body full-text search with English stemming/simple stop-word fallback. Does not hydrate missing bodies. Order is date descending then ID ascending; there is no total count.",
+        "x-required-scopes": [
+          "read"
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-repeated-query-parameters": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Query"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/AccountId"
+          },
+          {
+            "$ref": "#/components/parameters/Folder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "mfat_<opaque token>",
+        "description": "Existing MailFlow API Token with read scope. Create using the browser Security settings after the administrator enables tokens. Expiry and revocation are enforced on requests. Never send tokens in URLs."
+      }
+    },
+    "parameters": {
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Page size. Canonical decimal integer without signs, spaces, leading zeroes, fractions or exponent notation.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "description": "Zero-based offset, not a snapshot cursor. Canonical decimal integer without leading zeroes.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "default": 0
+        }
+      },
+      "AccountId": {
+        "name": "accountId",
+        "in": "query",
+        "description": "Select an owned, enabled account. Invalid UUID: 400. Missing, foreign or disabled account: 404. Without this parameter, use enabled accounts participating in the unified inbox.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Folder": {
+        "name": "folder",
+        "in": "query",
+        "description": "Exact server folder path, not a UUID. Listing defaults to INBOX and requires accountId for another folder. Search allows this filter without accountId, unless overridden by an in: operator.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "^[^\u0000-\u001f]+$"
+        }
+      },
+      "UnreadOnly": {
+        "name": "unreadOnly",
+        "in": "query",
+        "description": "Only the literal true enables unread-only listing. Omitted or false includes read and unread rows.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        }
+      },
+      "Query": {
+        "name": "q",
+        "in": "query",
+        "required": true,
+        "description": "Required search query. Trimmed length at least 2; submitted length at most 500. Supports from:, to:, subject:, has:attachment(s), is:unread/read/starred, after:, before:, in:, quoted operator values and leading - negation. First 10 free-text terms, terms shorter than 2 ignored. Effective conditions are ANDed; no effective conditions produces an empty page. See api-v1.md for full search semantics.",
+        "schema": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 500
+        }
+      }
+    },
+    "schemas": {
+      "Address": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ]
+      },
+      "Account": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "Folder": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "path": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "specialUse": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "accountId",
+          "path",
+          "name",
+          "specialUse"
+        ]
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "description": "Next offset while within the supported 0..100000 window; null at the end or when offset+limit exceeds 100000, even if hasMore is true. Narrow filters to traverse a larger result set. Offset pagination is not a snapshot.",
+            "maximum": 100000
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "hasMore",
+          "nextOffset"
+        ]
+      },
+      "MessageMetadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "folder": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "replyTo": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "inReplyTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "isStarred": {
+            "type": "boolean"
+          },
+          "hasAttachments": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "accountId",
+          "folder",
+          "messageId",
+          "subject",
+          "from",
+          "to",
+          "cc",
+          "replyTo",
+          "inReplyTo",
+          "date",
+          "snippet",
+          "isRead",
+          "isStarred",
+          "hasAttachments"
+        ],
+        "description": "Explicit cached row metadata. The row UUID can change after moves/resynchronization; RFC Message-ID is nullable and not unique."
+      },
+      "Body": {
+        "type": "object",
+        "properties": {
+          "html": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "html",
+          "text"
+        ],
+        "description": "Sanitized email HTML and cached plain text. Consumers control sandboxing and remote-resource display; either representation may be null. A confirmed attachment-only body is {html:null,text:\"\"}; attachment metadata alone does not prove a body has been fetched."
+      },
+      "Attachment": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Cached size in bytes, when known."
+          }
+        },
+        "required": [
+          "part",
+          "filename",
+          "contentType",
+          "size"
+        ],
+        "description": "MIME metadata only. There is no v1 attachment download endpoint; part is not a durable global identifier."
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthorized",
+                  "forbidden",
+                  "not_found",
+                  "payload_too_large",
+                  "rate_limited",
+                  "internal_error",
+                  "body_unavailable"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable diagnostic; clients must branch on status/code instead of this text."
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Message": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MessageMetadata"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/Body"
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            },
+            "required": [
+              "body",
+              "attachments"
+            ]
+          }
+        ]
+      },
+      "AccountPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "FolderPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Folder"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "MessagePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageMetadata"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Message"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      }
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "Invalid, unknown or repeated query parameter.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "invalid_request",
+                "message": "Invalid, unknown or repeated query parameter."
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "An API token is required, invalid, expired or revoked, or the administrator has disabled API Tokens.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "WWW-Authenticate": {
+            "description": "Bearer authentication challenge.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Bearer realm=\"MailFlow\""
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "unauthorized",
+                "message": "An API token is required, invalid, expired or revoked, or the administrator has disabled API Tokens."
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "A valid token lacks read scope or the request method/path is not allowlisted, including malformed path UUIDs.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "forbidden",
+                "message": "A valid token lacks read scope or the request method/path is not allowlisted, including malformed path UUIDs."
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The resource is missing, deleted, foreign, or belongs to a disabled account.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "not_found",
+                "message": "The resource is missing, deleted, foreign, or belongs to a disabled account."
+              }
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "The existing 1 MiB token request-body limit was exceeded. GET requests need no body.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "payload_too_large",
+                "message": "The existing 1 MiB token request-body limit was exceeded. GET requests need no body."
+              }
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "An existing token, user, authentication-failure or shared search rate limit was exceeded.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "Retry-After": {
+            "description": "Seconds to wait before retrying.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "example": "60"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "rate_limited",
+                "message": "An existing token, user, authentication-failure or shared search rate limit was exceeded."
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "The request could not be completed. Database/mail engine details are not exposed.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "internal_error",
+                "message": "The request could not be completed. Database/mail engine details are not exposed."
+              }
+            }
+          }
+        }
+      },
+      "BodyUnavailable": {
+        "description": "Body fetch failed, is unavailable, or the cached message changed during the fetch.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "body_unavailable",
+                "message": "Body fetch failed, is unavailable, or the cached message changed during the fetch."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

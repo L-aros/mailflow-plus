@@ -11,6 +11,8 @@ import { redisClient } from './services/redis.js';
 import { parseTrustProxyHops } from './utils/trustProxy.js';
 import { buildSessionOptions } from './utils/sessionConfig.js';
 import { mountApiAuth } from './middleware/apiChain.js';
+import { apiV1ErrorHandler } from './middleware/apiV1.js';
+import apiV1Routes from './routes/apiV1.js';
 
 import sendRoutes from './routes/send.js';
 import draftRoutes from './routes/draft.js';
@@ -148,6 +150,8 @@ app.set('imapManager', imapManager);
 setMailEngine(imapManager);
 
 // Routes
+app.use('/api/v1', apiV1Routes);
+app.use('/api/v1', apiV1ErrorHandler);
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/oidc', oidcApiRouter);
 app.use('/auth/oidc', oidcBrowserRouter);

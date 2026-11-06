@@ -33,9 +33,9 @@ export async function storeFetchedBody(id, { html, text, attachments, cidsComple
   if (safeHtml || text || (attachments && attachments.length > 0)) {
     const params = [safeHtml, safeText, JSON.stringify(attachments || []), id, snip];
     const guard = over
-      ? ` AND body_html IS NOT DISTINCT FROM $6 AND body_text IS NOT DISTINCT FROM $7 AND uid = $8 AND folder = $9`
+      ? ` AND body_html IS NOT DISTINCT FROM $6 AND body_text IS NOT DISTINCT FROM $7 AND uid = $8 AND folder = $9 AND message_id IS NOT DISTINCT FROM $10`
       : '';
-    if (over) params.push(over.body_html ?? null, over.body_text ?? null, over.uid, over.folder);
+    if (over) params.push(over.body_html ?? null, over.body_text ?? null, over.uid, over.folder, over.message_id ?? null);
     const result = await query(
       `UPDATE messages
        SET body_html = $1, body_text = $2, attachments = $3,
