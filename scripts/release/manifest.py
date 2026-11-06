@@ -94,6 +94,7 @@ def main():
         runtime[point] = values
     assert json.loads((root / 'validation/drill/drill-results.json').read_text())['ok'] is True
     assert json.loads((root / 'validation/backup-smoke/backup-smoke.json').read_text())['ok'] is True
+    assert json.loads((root / 'validation/backup-smoke-baseline/backup-smoke.json').read_text())['ok'] is True
     files = {str(p.relative_to(root)).replace('\\', '/'): {'sha256': file_hash(p), 'bytes': p.stat().st_size}
              for p in sorted(root.rglob('*')) if p.is_file() and p.name not in {'SHA256SUMS', 'release-manifest.json'}}
     document = {
@@ -107,7 +108,8 @@ def main():
                           'registry_repo_digests': item.get('RepoDigests', []),
                           'archive': 'dependencies.docker.tar'}
                          for item in json.loads((root / 'validation/dependencies.inspect.json').read_text())],
-        'validation': {'drill': 'validation/drill', 'backup_scripts': 'validation/backup-smoke'},
+        'validation': {'drill': 'validation/drill', 'backup_scripts': 'validation/backup-smoke',
+                       'backup_scripts_baseline': 'validation/backup-smoke-baseline'},
         'ci': {'run_id': os.environ.get('GITHUB_RUN_ID'), 'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
                'verified_sha': os.environ.get('VERIFIED_SHA'),
                'url': f"https://github.com/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}"},

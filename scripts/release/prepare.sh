@@ -40,6 +40,7 @@ done
 bash scripts/release/drill.sh "mailflow-plus/backend:sha-$sha" "mailflow-plus/frontend:sha-$sha" \
   "mailflow-plus/backend:sha-$baseline" "mailflow-plus/frontend:sha-$baseline" "$out/validation/drill"
 bash scripts/release/backup-smoke.sh "mailflow-plus/backend:sha-$sha" "mailflow-plus/frontend:sha-$sha" "$out/validation/backup-smoke"
+bash scripts/release/backup-smoke.sh "mailflow-plus/backend:sha-$baseline" "mailflow-plus/frontend:sha-$baseline" "$out/validation/backup-smoke-baseline"
 docker image inspect postgres:16-alpine redis:7-alpine > "$out/validation/dependencies.inspect.json"
 docker save --output "$out/dependencies.docker.tar" postgres:16-alpine redis:7-alpine
 cp docker-compose.yml docker-compose.https.yml docker-compose.plus*.yml Caddyfile "$out/"

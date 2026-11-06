@@ -170,5 +170,6 @@ for attempt in {1..30}; do
 done
 # Restored Redis holds old authenticated sessions; clear just this dedicated
 # instance, never a shared/external Redis. The target starts with fresh sessions.
-"${compose[@]}" exec -T redis redis-cli FLUSHALL >/dev/null
+flush_result=$("${compose[@]}" exec -T redis redis-cli -e FLUSHALL)
+[[ $flush_result == OK ]] || { echo 'Restored Redis session invalidation did not return OK.' >&2; exit 1; }
 echo 'Restored snapshot and paused outgoing work. Frontend/backend remain stopped; inspect and start them explicitly.'

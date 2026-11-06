@@ -290,7 +290,10 @@ reviewed. Re-enabling a subscription can resume pending deliveries.
 
 The isolated CI rehearsal separately tests pre-0076 → candidate upgrade, matched
 old-snapshot rollback, candidate full/setup application restore and the generic
-Compose backup/restore script roundtrip. Assess that run's logs and result JSON for
+Compose backup/restore script roundtrips for both same-schema and fresh-database
+targets. The generic smoke also checks that a saved pre-backup login session is
+rejected with 401, a new login works, files created after the snapshot are removed,
+and the default application user can write the restored cache. Assess that run's logs and result JSON for
 actual coverage, timings and failures. PG16/Redis7 is the supported exercise
 combination. Historical PG18/Redis8 usage is a deployment clue, not a claim of
 compatibility or authorization to change the old server.
