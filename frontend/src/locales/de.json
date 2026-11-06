@@ -442,6 +442,8 @@
     "syncAccount": "Dieses Konto synchronisieren",
     "syncAll": "Alle Konten synchronisieren",
     "sync": "Synchronisieren",
+    "syncFailedTitle": "Synchronisierung fehlgeschlagen",
+    "syncFailedBody": "Prüfe deine Verbindung und versuche die Synchronisierung erneut.",
     "compose": "Verfassen",
     "messagesPerPage": "Nachrichten pro Seite",
     "selectAll": "Alle auswählen",

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "mailflow-plus"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "mailflow-plus"]
 
 jobs:
   backend:

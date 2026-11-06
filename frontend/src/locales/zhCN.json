@@ -442,6 +442,8 @@
     "syncAccount": "同步此账户",
     "syncAll": "同步所有账户",
     "sync": "同步",
+    "syncFailedTitle": "同步失败",
+    "syncFailedBody": "请检查网络连接后重试同步。",
     "compose": "撰写",
     "messagesPerPage": "每页邮件数",
     "selectAll": "全选",

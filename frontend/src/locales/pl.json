@@ -444,6 +444,8 @@
     "syncAccount": "Synchronizuj konto",
     "syncAll": "Synchronizuj wszystkie konta",
     "sync": "Synchronizuj",
+    "syncFailedTitle": "Synchronizacja nie powiodła się",
+    "syncFailedBody": "Sprawdź połączenie i spróbuj zsynchronizować ponownie.",
     "compose": "Napisz",
     "messagesPerPage": "Wiadomości na stronę",
     "selectAll": "Zaznacz wszystkie",

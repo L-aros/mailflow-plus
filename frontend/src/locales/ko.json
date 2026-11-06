@@ -439,6 +439,8 @@
     "unread": "읽지 않음",
     "showAll": "모두 표시",
     "sync": "동기화",
+    "syncFailedTitle": "동기화 실패",
+    "syncFailedBody": "연결을 확인한 후 다시 동기화해 주세요.",
     "compose": "메일 쓰기",
     "selectAll": "모두 선택",
     "starSelected": "별표 표시",

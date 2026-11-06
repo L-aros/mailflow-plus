@@ -442,6 +442,8 @@
     "syncAccount": "Sync this account",
     "syncAll": "Sync all accounts",
     "sync": "Sync",
+    "syncFailedTitle": "Sync failed",
+    "syncFailedBody": "Check your connection and try syncing again.",
     "compose": "Compose",
     "messagesPerPage": "Messages per page",
     "selectAll": "Select all",

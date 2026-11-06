@@ -316,6 +316,8 @@
     "syncAccount": "Synchronizovat tento účet",
     "syncAll": "Synchronizovat všechny účty",
     "sync": "Synchronizovat",
+    "syncFailedTitle": "Synchronizace se nezdařila",
+    "syncFailedBody": "Zkontrolujte připojení a zkuste synchronizaci znovu.",
     "compose": "Napsat",
     "messagesPerPage": "Zpráv na stránku",
     "selectAll": "Vybrat vše",
