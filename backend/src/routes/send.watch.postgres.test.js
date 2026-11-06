@@ -216,6 +216,11 @@ describe.skipIf(!process.env.MAILFLOW_TEST_DATABASE_URL)('sent Watch through rea
         folder_mappings jsonb, sort_order int DEFAULT 0, created_at timestamptz DEFAULT now(),
         imap_host text, imap_port int, imap_tls boolean, auth_user text, auth_pass text,
         smtp_host text, oauth_provider text, protocol text DEFAULT 'imap', last_sync timestamptz);
+      -- INBOX sync checks for an active subscription before preparing its outbox. This
+      -- Watch fixture has none; execute that real SQL against its own empty table.
+      CREATE TEMP TABLE webhook_subscriptions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id text NOT NULL REFERENCES users(id), account_id uuid NOT NULL REFERENCES email_accounts(id),
+        enabled boolean NOT NULL DEFAULT true);
       CREATE TEMP TABLE account_aliases (account_id uuid, email text);
       CREATE TEMP TABLE plugin_account_config (plugin_id text, account_id uuid, config jsonb);
       CREATE TEMP TABLE system_settings (key text, value text);
@@ -283,7 +288,7 @@ describe.skipIf(!process.env.MAILFLOW_TEST_DATABASE_URL)('sent Watch through rea
       }
       catch (error) { databaseFailures.push(error.message); throw error; }
     });
-    await database.query('TRUNCATE users,email_accounts,account_aliases,plugin_account_config,system_settings,folders,messages,address_books,contacts');
+    await database.query('TRUNCATE users,email_accounts,webhook_subscriptions,account_aliases,plugin_account_config,system_settings,folders,messages,address_books,contacts');
     await database.query(`INSERT INTO users VALUES ('owner','{"enabledPlugins":["gtd"]}'),('foreign','{}');
       INSERT INTO system_settings VALUES ('allow_private_hosts','true'),('allow_insecure_tls','true');`);
     for (const [id, login] of [[A, 'owner@synthetic.test'], [B, 'second@synthetic.test']]) {

@@ -48,6 +48,10 @@ export const SETUP_TABLES = [
   'user_identities',
   'user_integrations',
   'users',
+  'webhook_subscriptions',
+  'webhook_events',
+  'webhook_deliveries',
+  'webhook_mailboxes',
 ];
 // The local copy of the mail on the IMAP servers. Synced again after a restore that leaves it out.
 export const MAIL_CACHE_TABLES = ['folders', 'messages', 'unfetchable_uids'];
@@ -90,6 +94,16 @@ const JSON_TYPES = new Set(['json', 'jsonb']);
 const textTypes = {
   getTypeParser: (oid, format) => (TEXT_TYPE_OIDS.has(oid) ? value => value : pg.types.getTypeParser(oid, format)),
 };
+
+// Called inside the restore transaction, also exercised against PostgreSQL without
+// performing an entire installation restore. Exhausted claims must remain retryable.
+export async function pauseRestoredWebhooks(client) {
+  await client.query('UPDATE webhook_subscriptions SET enabled = false, updated_at = NOW()');
+  await client.query(`UPDATE webhook_deliveries SET
+    status = CASE WHEN attempts >= 8 THEN 'failed' ELSE 'pending' END,
+    last_error = CASE WHEN attempts >= 8 THEN 'lease_expired' ELSE last_error END,
+    lease_token = NULL, lease_until = NULL, updated_at = NOW() WHERE status = 'processing'`);
+}
 
 // A problem with the file or with restoring it here, worded for the admin who uploaded it.
 export class BackupFileError extends Error {
@@ -518,6 +532,11 @@ async function restoreLines(client, reader, { beforeWrite, onProgress }) {
         `UPDATE scheduled_messages SET status = 'paused', pause_reason = 'restored', status_before = NULL, ${released}
           WHERE status IN ('scheduled', 'editing') OR (status = 'sending' AND smtp_accepted_at IS NULL)`,
       );
+    }
+    // Restoring a backup must not replay notifications from another installation.
+    // Keep the outbox and its failures for inspection, but require an explicit enable.
+    if (present.has('webhook_subscriptions')) {
+      await pauseRestoredWebhooks(client);
     }
     await client.query('COMMIT');
   } catch (err) {

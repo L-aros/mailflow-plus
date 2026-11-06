@@ -489,4 +489,22 @@ describe('restoreBackup', () => {
     await expect(restoreBackup(client, file(rows))).rejects.toThrow('boom');
     expect(client.statements().at(-1)).toBe('ROLLBACK');
   });
+
+  it('disables restored webhooks and releases claims without stranding an exhausted delivery', async () => {
+    const client = restoreClient({ tables: [...PRESENT, 'webhook_subscriptions', 'webhook_deliveries'] });
+    await restoreBackup(client, file(rows));
+    const sql = client.statements().map(s => s.replace(/\s+/g, ' '));
+    const off = sql.findIndex(s => s.startsWith('UPDATE webhook_subscriptions SET enabled = false'));
+    expect(off).toBeGreaterThan(sql.findLastIndex(s => s.startsWith('INSERT INTO')));
+    expect(sql[off + 1]).toContain("status = CASE WHEN attempts >= 8 THEN 'failed' ELSE 'pending' END");
+    expect(sql[off + 1]).toContain('lease_token = NULL, lease_until = NULL');
+    expect(sql[off + 2]).toBe('COMMIT');
+  });
+
+  it('rolls the entire restore back if webhook pause fails', async () => {
+    const client = restoreClient({ tables: [...PRESENT, 'webhook_subscriptions', 'webhook_deliveries'],
+      failOn: /^UPDATE webhook_subscriptions/ });
+    await expect(restoreBackup(client, file(rows))).rejects.toThrow('boom');
+    expect(client.statements().at(-1)).toBe('ROLLBACK');
+  });
 });

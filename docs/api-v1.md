@@ -4,7 +4,8 @@ The versioned read API is rooted at `/api/v1`. Its machine-readable contract is
 [openapi-v1.json](./openapi-v1.json) (OpenAPI 3.1). It exposes enabled accounts,
 cached folder metadata, individual mail rows, message content and search. This
 API uses the existing MailFlow API Token system; it does not add sending,
-deletion, attachment download or Webhook endpoints.
+deletion or attachment download. [New-mail Webhooks](./webhooks.md) can notify a
+receiver of these resources; their configuration uses browser settings, not v1.
 
 ## Authentication and scope
 
@@ -266,4 +267,5 @@ search parser/query, mail engine, body store and sanitizer. Its projections keep
 internal database columns outside the public contract. It adds no database schema
 migration or token format. Rollback removes the v1 adapter and its allowlist
 entries; existing tokens and unversioned permissions continue to use the existing
-system. Webhook implementation and production deployment are separate work.
+system. Webhook configuration has its own migration and browser-session boundary;
+see [Webhooks](./webhooks.md). Production deployment is separate work.

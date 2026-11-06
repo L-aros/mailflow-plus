@@ -3,6 +3,7 @@ import { extractImapError } from './imapError.js';
 import { recordUnfetchable, suppressedUids, clearUnfetchable, hasRealGap } from './unfetchableUids.js';
 import { ImapFlow } from 'imapflow';
 import { query } from './db.js';
+import { prepareWebhookIngest, persistWebhookMessage } from './webhookIngest.js';
 import { parseMessage, parseMailboxList, snippetFromBody, detectBulkFromParsedHeaders, ALIAS_FORWARDER_HEADERS, parseHeadersInput, headersToRawString, decodeMimeWords, enrichParsedMetadata, renderCalendarInvite, MAX_HEADER_FIELD } from './messageParser.js';
 import { headerIds, searchReplyDraftUids, draftFolderPaths } from './replyDraftLookup.js';
 import { classifyMessage, loadSocialDomains, getGlobalCategorizationEnabled } from './categorizer.js';
@@ -4887,6 +4888,7 @@ export class ImapManager {
         const mailbox = client.mailbox;
         // A missing mailbox is unknown, never proof of an empty mailbox.
         if (!mailbox) return { insertedCount: 0, broadcastedNewMessages: false };
+        const webhookContext = await prepareWebhookIngest(account, mailbox, folder);
 
         // UIDVALIDITY check — detects server-side mailbox rebuilds (migration, restore).
         // If UIDVALIDITY changed, all stored UIDs for this folder are invalid; purge them
@@ -5049,7 +5051,7 @@ export class ImapManager {
               } catch { /* non-fatal — leave category NULL */ }
             }
 
-            const result = await query(`
+            const result = await persistWebhookMessage(webhookContext, account, folder, parsed, `
               INSERT INTO messages (
                 account_id, uid, folder, message_id, subject,
                 from_name, from_email, to_addresses, cc_addresses,
@@ -5145,8 +5147,8 @@ export class ImapManager {
             // A message a move dropped the row of, filed again here: it gets back what MailFlow
             // knew about it and is not new mail, as a move with a known uid is not
             // (services/movedRowCarry.js).
-            const carried = result.rows[0]?.is_new && hasCarries()
-              ? takeCarry(account.id, folder, msgId, parsed.date) : null;
+            const carried = result.rows[0]?.movedCarry || (result.rows[0]?.is_new && hasCarries()
+              ? takeCarry(account.id, folder, msgId, parsed.date) : null);
             if (carried) {
               insertedCount++;
               const update = carryUpdate(result.rows[0].id, carried);
@@ -5593,9 +5595,11 @@ export class ImapManager {
       // is released, and the ghost filter further down must match on the validity in force
       // when the UID set was read, not on whatever the client happens to hold later.
       let bfUidValidity = null;
+      let webhookContext = null;
       {
         const lock = await bfClient.getMailboxLock(folder);
         try {
+          webhookContext = await prepareWebhookIngest(account, bfClient.mailbox, folder);
           const totalExists = bfClient.mailbox?.exists || 0;
           if (totalExists === 0) {
             logger.debug(`Backfill ${logAccount(account)}: mailbox empty`);
@@ -5750,6 +5754,7 @@ export class ImapManager {
         try {
           const lock = await bfClient.getMailboxLock(folder);
           try {
+            webhookContext = await prepareWebhookIngest(account, bfClient.mailbox, folder);
             // Third arg { uid: true } issues UID FETCH instead of sequence FETCH.
             // bodyParts omitted for Gmail (empty array) — metadata only, no throttling.
             const bfQuery = {
@@ -5804,7 +5809,7 @@ export class ImapManager {
                   } catch { /* non-fatal */ }
                 }
 
-                const bfInsert = await query(`
+                const bfInsert = await persistWebhookMessage(webhookContext, account, folder, parsed, `
                   INSERT INTO messages (
                     account_id, uid, folder, message_id, subject,
                     from_name, from_email, to_addresses, cc_addresses,
@@ -5903,7 +5908,11 @@ export class ImapManager {
                 // classifier works from the subject/flag signals it does have.
                 // deferAutoMove: a reindex classifies the WHOLE mailbox at once,
                 // so moving is left to normal ingest — see maybeClassifyNewMessage.
-                if (bfInsert?.rows[0]?.is_new) {
+                const carried = bfInsert?.rows[0]?.movedCarry;
+                if (carried) {
+                  const update = carryUpdate(bfInsert.rows[0].id, carried);
+                  if (update) await query(update.text, update.params);
+                } else if (bfInsert?.rows[0]?.is_new) {
                   this.maybeClassifyNewMessage(account, bfInsert.rows[0].id, parsed, { deferAutoMove: true });
                 }
                 // Same statement as the sync path's propagation, same constraints: no
