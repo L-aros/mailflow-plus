@@ -5,6 +5,14 @@ on:
     branches: ["main", "mailflow-plus"]
   pull_request:
     branches: ["main", "mailflow-plus"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Tests and image preparation use the same source, including on PRs.
+  VERIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   backend:
@@ -30,6 +38,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.VERIFIED_SHA }}
+          persist-credentials: false
 
       - uses: actions/setup-node@v6
         with:
@@ -69,6 +80,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.VERIFIED_SHA }}
+          persist-credentials: false
 
       - uses: actions/setup-node@v6
         with:
@@ -95,3 +109,39 @@ jobs:
       - name: Audit
         working-directory: frontend
         run: npm audit --omit=dev --audit-level=high
+
+  prepare:
+    name: Plus images and recovery drill
+    needs: [backend, frontend]
+    if: github.ref_name == 'mailflow-plus' || github.base_ref == 'mailflow-plus' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.VERIFIED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - name: Install backup encryption tool
+        run: sudo apt-get update -qq && sudo apt-get install -y age
+      - name: Prepare offline images and exercise recovery
+        env:
+          PREPARE_OUTPUT: ${{ runner.temp }}/mailflow-release
+        run: bash scripts/release/prepare.sh
+      - name: Upload verified offline candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: mailflow-plus-${{ env.VERIFIED_SHA }}
+          path: ${{ runner.temp }}/mailflow-release
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Retain failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepare-diagnostics-${{ env.VERIFIED_SHA }}
+          path: ${{ runner.temp }}/mailflow-release/validation
+          if-no-files-found: ignore
+          retention-days: 14

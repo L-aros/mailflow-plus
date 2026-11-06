@@ -12,21 +12,27 @@ FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-ARG BUILD_SHA
-ARG APP_VERSION
+ARG BUILD_SHA=dev
+ARG APP_VERSION=4.3.0-plus.dev
 ENV BUILD_SHA=${BUILD_SHA:-dev}
+ENV UPDATE_CHECK_DISABLED=true
+ENV UPDATE_CHECK_REPO=L-aros/mailflow-plus
+LABEL org.opencontainers.image.title="MailFlow Plus backend" \
+      org.opencontainers.image.source="https://github.com/L-aros/mailflow-plus" \
+      org.opencontainers.image.revision="${BUILD_SHA}" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.licenses="AGPL-3.0" \
+      io.mailflow.license.notice="Original LICENSE and LICENSE-COMMERCIAL preserved in /usr/share/mailflow"
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . /repo
-RUN cp /repo/backend/package.json ./package.json && \
-    cp -R /repo/backend/src ./src && \
-    cp -R /repo/backend/migrations ./migrations && \
-    APP_VERSION_VALUE="${APP_VERSION:-$(node -p "require('./package.json').version")}"; \
-    APP_VERSION_VALUE="$(printf '%s' "$APP_VERSION_VALUE" | sed 's/^v[.]//' | sed 's/^v//')"; \
-    printf '{"version":"%s"}\n' "$APP_VERSION_VALUE" > ./build-meta.json && \
+COPY backend/package.json ./package.json
+COPY backend/src ./src
+COPY backend/migrations ./migrations
+COPY LICENSE LICENSE-COMMERCIAL /usr/share/mailflow/
+COPY backend/package.json backend/package-lock.json /usr/share/mailflow/backend/
+RUN APP_VERSION="${APP_VERSION}" BUILD_SHA="${BUILD_SHA}" node --input-type=module -e 'import fs from "node:fs"; fs.writeFileSync("build-meta.json", JSON.stringify({version:process.env.APP_VERSION.replace(/^v[.]?/, ""),sha:process.env.BUILD_SHA})+"\n")' && \
     mkdir -p /var/cache/mailflow/images && \
-    chown -R node:node /app /var/cache/mailflow && \
-    rm -rf /repo
+    chown -R node:node /app /var/cache/mailflow
 
 USER node
 

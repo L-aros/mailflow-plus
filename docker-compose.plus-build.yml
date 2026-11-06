@@ -1,0 +1,20 @@
+# Use only with docker-compose.plus.yml from a clean, fixed source checkout:
+# GIT_SHA=$(git rev-parse HEAD) PLUS_VERSION=4.3.0-plus.sha-<full-sha>
+# docker compose -f docker-compose.plus.yml -f docker-compose.plus-build.yml build
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_BUILD_SHA: ${GIT_SHA:?Set GIT_SHA to the complete checked-out source commit}
+        APP_VERSION: ${PLUS_VERSION:?Set PLUS_VERSION to the immutable Plus version}
+        VITE_EMAIL_DIV_RENDER: ${VITE_EMAIL_DIV_RENDER:-false}
+        NGINX_BASE: ${NGINX_BASE:-nginx:alpine}
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        BUILD_SHA: ${GIT_SHA:?Set GIT_SHA to the complete checked-out source commit}
+        APP_VERSION: ${PLUS_VERSION:?Set PLUS_VERSION to the immutable Plus version}

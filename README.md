@@ -1,3 +1,7 @@
+> **MailFlow Plus:** use the [Plus build, offline images and recovery guide](docs/release-operations.md)
+> and `docker-compose.plus.yml` for this fork. The upstream GHCR images in the original
+> installation instructions below do not include the Plus API, Webhooks or mobile changes.
+
 <p align="center">
   <img src="media/mailflow-logo.png" width="200" alt="MailFlow Logo">
 </p>

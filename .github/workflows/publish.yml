@@ -1,92 +1,16 @@
 name: Publish to GHCR
 
+# Kept disabled in repository settings. No tag-triggered publishing.
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  publish:
+  publish-not-configured:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # ── Backend ─────────────────────────────────────────────────────────────
-
-      - name: Extract metadata (backend)
-        id: meta-backend
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/mailflow-backend
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            # Prerelease tags (v3.5.9-beta.1) must never repoint `latest`: everyone on the
-            # stock compose file pulls latest, and a beta exists precisely because it is
-            # not for them yet. The semver patterns already skip prereleases on their own.
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
-
-      - name: Build and push backend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./backend/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_SHA=${{ github.sha }}
-            APP_VERSION=${{ github.ref_name }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # ── Frontend ─────────────────────────────────────────────────────────────
-
-      - name: Extract metadata (frontend)
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/mailflow-frontend
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            # Prerelease tags (v3.5.9-beta.1) must never repoint `latest`: everyone on the
-            # stock compose file pulls latest, and a beta exists precisely because it is
-            # not for them yet. The semver patterns already skip prereleases on their own.
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
-
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          provenance: false
-          build-args: |
-            VITE_BUILD_SHA=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - run: |
+          echo '::error::Registry publishing is not configured. Use CI to prepare the exact Plus commit; review release-manifest.json and choose registry ownership/visibility before implementing promotion.'
+          exit 1

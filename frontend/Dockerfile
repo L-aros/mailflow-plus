@@ -14,21 +14,36 @@ COPY frontend/package*.json ./
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN npm ci
 
-COPY . /repo
-RUN cp -R /repo/frontend/. /app/
+COPY frontend/ .
 
 ARG VITE_BUILD_SHA
 ENV VITE_BUILD_SHA=${VITE_BUILD_SHA:-dev}
+ARG APP_VERSION=4.3.0-plus.dev
+ENV VITE_APP_VERSION=${APP_VERSION}
 ARG VITE_EMAIL_DIV_RENDER
 ENV VITE_EMAIL_DIV_RENDER=${VITE_EMAIL_DIV_RENDER:-false}
 
-RUN npm run build
+RUN npm run build && node --input-type=module -e 'import fs from "node:fs"; const sha=process.env.VITE_BUILD_SHA; fs.writeFileSync("dist/build-info.json",JSON.stringify({product:"MailFlow Plus",version:process.env.VITE_APP_VERSION,sha,sourceUrl:"https://github.com/L-aros/mailflow-plus/tree/"+(/^[a-f0-9]{40}$/.test(sha)?sha:"mailflow-plus")})+"\n")'
 
 FROM ${NGINX_BASE}
+
+ARG VITE_BUILD_SHA=dev
+ARG APP_VERSION=4.3.0-plus.dev
+LABEL org.opencontainers.image.title="MailFlow Plus frontend" \
+      org.opencontainers.image.source="https://github.com/L-aros/mailflow-plus" \
+      org.opencontainers.image.revision="${VITE_BUILD_SHA}" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.licenses="AGPL-3.0" \
+      io.mailflow.component.license="GPL-3.0" \
+      io.mailflow.license.notice="Root LICENSE: AGPL-3.0; frontend/package.json: GPL-3.0 (original metadata preserved)"
 
 RUN apk add --no-cache openssl
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY LICENSE LICENSE-COMMERCIAL /usr/share/mailflow/
+COPY frontend/package.json frontend/package-lock.json /usr/share/mailflow/frontend/
+COPY LICENSE LICENSE-COMMERCIAL /usr/share/nginx/html/licenses/
+COPY frontend/package.json /usr/share/nginx/html/licenses/frontend-package.json
 
 # The config is baked in, NOT rendered at runtime. 3.4.3 made it an envsubst template to get
 # the resolver right on non-Docker runtimes (#448), but that made /etc/nginx/conf.d a startup
