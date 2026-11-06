@@ -3,6 +3,7 @@ import { apiTokenGuards } from './apiTokenGuards.js';
 import { mountBodyParsers } from './bodyParsers.js';
 import { csrfGuard } from './csrfGuard.js';
 import { screenLockGate } from './screenLock.js';
+import { apiV1Response, requireApiV1Token } from './apiV1.js';
 
 // Everything that decides who a request is and whether it may go on, in the order it has to run.
 // index.js mounts it ahead of the routers and the tests mount the same function, so the order is
@@ -12,7 +13,10 @@ import { screenLockGate } from './screenLock.js';
 // and before express-session, which skips any request that already carries req.session. Their
 // post-parse guards come last, once the body is in.
 export function mountApiAuth(app, sessionMiddleware) {
+  app.use('/api/v1', apiV1Response);
   app.use('/api', apiTokenAuth);
+  // A v1 request never falls through to browser identity, even a locked cookie session.
+  app.use('/api/v1', requireApiV1Token);
   // Body parsers live in bodyParsers.js. The larger limits are for signed-in requests only, so
   // those paths load the session there first.
   mountBodyParsers(app, sessionMiddleware);

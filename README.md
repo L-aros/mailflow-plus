@@ -543,6 +543,9 @@ Any standard IMAP/SMTP server works. Use port 993 for IMAP (TLS) and
 
 ## Management
 
+MailFlow Plus provides a versioned, read-only HTTP API for enabled mailboxes, messages and search.
+See the [API v1 guide](docs/api-v1.md) and [OpenAPI contract](docs/openapi-v1.json).
+
 ```bash
 # View all logs
 docker compose logs -f
