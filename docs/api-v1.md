@@ -40,7 +40,7 @@ files or application logs.
 
 Unknown, repeated, array or object query parameters are rejected with 400.
 `limit` defaults to 50 and accepts integers 1–200. `offset` defaults to 0 and
-accepts integers 0–100000. Use decimal digits, without signs, whitespace,
+accepts all nonnegative JavaScript safe integers, 0–9007199254740991. Use decimal digits, without signs, whitespace,
 fractions, leading zeroes or exponent notation. `unreadOnly` accepts exactly
 `true` or `false` and defaults to no unread-only filter. `folder` is a nonempty
 string of at most 1000 characters without ASCII control characters; it is a
@@ -77,9 +77,10 @@ Every collection returns this envelope; there is no `total` count:
 ```
 
 `hasMore` is established by reading one extra row. Continue with `nextOffset`
-while it is non-null, using the same filters. When the next offset would exceed
-100000, `nextOffset` is null even if `hasMore` is true. Narrow the account, folder
-or search filters to read beyond that window. Accounts sort by configured order,
+while it is non-null, using the same filters. When another row exists,
+`nextOffset` is `offset + limit`. It is null at the end, or if that sum exceeds
+JavaScript's maximum safe integer (9007199254740991), even if `hasMore` is true.
+There is no smaller result-window cutoff. Accounts sort by configured order,
 creation time and ID; folders sort by path. Ordinary message lists and search
 sort by message date descending and row ID ascending for ties. The existing
 `Snoozed` view retains its wake time ascending (nulls last), date descending and

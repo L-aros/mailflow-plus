@@ -31,12 +31,12 @@ function parameters(req, allowed) {
   if (req.query.folder !== undefined && (!req.query.folder || req.query.folder.length > 1000 || [...req.query.folder].some(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127))) {
     throw new InvalidParameters('Invalid folder');
   }
-  return { limit: integer('limit', 50, 1, 200), offset: integer('offset', 0, 0, 100000) };
+  return { limit: integer('limit', 50, 1, 200), offset: integer('offset', 0, 0, Number.MAX_SAFE_INTEGER) };
 }
 
 function page(rows, { limit, offset }, map = row => row) {
   const hasMore = rows.length > limit;
-  return { data: rows.slice(0, limit).map(map), pagination: { limit, offset, hasMore, nextOffset: hasMore && offset + limit <= 100000 ? offset + limit : null } };
+  return { data: rows.slice(0, limit).map(map), pagination: { limit, offset, hasMore, nextOffset: hasMore && Number.isSafeInteger(offset + limit) ? offset + limit : null } };
 }
 
 const endpoint = handler => async (req, res, next) => {

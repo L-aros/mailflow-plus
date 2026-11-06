@@ -388,11 +388,11 @@
       "Offset": {
         "name": "offset",
         "in": "query",
-        "description": "Zero-based offset, not a snapshot cursor. Canonical decimal integer without leading zeroes.",
+        "description": "Zero-based offset, not a snapshot cursor. Accepts every nonnegative JavaScript safe integer (0..9007199254740991), with no smaller result-window cutoff. Canonical decimal integer without leading zeroes.",
         "schema": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 100000,
+          "maximum": 9007199254740991,
           "default": 0
         }
       },
@@ -526,7 +526,7 @@
           "offset": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100000
+            "maximum": 9007199254740991
           },
           "hasMore": {
             "type": "boolean"
@@ -537,8 +537,8 @@
               "null"
             ],
             "minimum": 1,
-            "description": "Next offset while within the supported 0..100000 window; null at the end or when offset+limit exceeds 100000, even if hasMore is true. Narrow filters to traverse a larger result set. Offset pagination is not a snapshot.",
-            "maximum": 100000
+            "description": "offset + limit when another row exists; null at the end or only when that sum exceeds the JavaScript safe-integer range (9007199254740991), even if hasMore is true. There is no smaller result-window cutoff. Offset pagination is not a snapshot.",
+            "maximum": 9007199254740991
           }
         },
         "required": [

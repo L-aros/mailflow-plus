@@ -217,14 +217,19 @@ describe.skipIf(!process.env.MAILFLOW_TEST_DATABASE_URL)('versioned read API Pos
     }
   });
 
-  it('stops nextOffset at the documented pagination window even when more rows exist', async () => {
+  it('continues pagination beyond offset 100000 without duplicates', async () => {
     await state.database.query(`INSERT INTO messages (id, account_id, message_id)
       SELECT md5('window-' || n)::uuid, $1, '<window-' || n || '@example.test>'
       FROM generate_series(1,100205) n`, [ACCOUNT]);
-    const result = await call(`/api/v1/messages?accountId=${ACCOUNT}&offset=99999&limit=200`);
-    expect(result.status).toBe(200);
-    expect(result.json.data).toHaveLength(200);
-    expect(result.json.pagination).toEqual({ limit: 200, offset: 99999, hasMore: true, nextOffset: null });
+    const results = [];
+    for (const offset of [100000, 100050, 100100]) {
+      const result = await call(`/api/v1/messages?accountId=${ACCOUNT}&offset=${offset}&limit=50`);
+      expect(result.status).toBe(200);
+      expect(result.json.data).toHaveLength(50);
+      expect(result.json.pagination).toEqual({ limit: 50, offset, hasMore: true, nextOffset: offset + 50 });
+      results.push(...result.json.data);
+    }
+    expect(new Set(results.map(row => row.id)).size).toBe(150);
   });
 
   it('returns content and only attachment metadata without marking the message read', async () => {
@@ -392,7 +397,7 @@ describe.skipIf(!process.env.MAILFLOW_TEST_DATABASE_URL)('versioned read API Pos
   });
 
   it('validates bounded pagination, scalar parameters, identifiers and supported filters', async () => {
-    for (const query of ['limit=0', 'limit=201', 'limit=1.5', 'offset=-1', 'offset=100001', 'offset=1x', 'limit=2&limit=3',
+    for (const query of ['limit=0', 'limit=201', 'limit=1.5', 'offset=-1', 'offset=9007199254740992', 'offset=1x', 'limit=2&limit=3',
       'unknown=true', 'unreadOnly=yes', 'accountId=bad', 'folder=Archive', 'folder=', 'folder=%00']) {
       expectError(await call(`/api/v1/messages?${query}`), 400, 'invalid_request');
     }
@@ -400,6 +405,10 @@ describe.skipIf(!process.env.MAILFLOW_TEST_DATABASE_URL)('versioned read API Pos
       expectError(await call(`/api/v1/search?${query}`), 400, 'invalid_request');
     }
     expect((await call('/api/v1/messages?limit=200&offset=100000')).status).toBe(200);
+    expect((await call('/api/v1/messages?offset=100001')).status).toBe(200);
+    const lastSafeOffset = await call('/api/v1/messages?offset=9007199254740991');
+    expect(lastSafeOffset.status).toBe(200);
+    expect(lastSafeOffset.json).toEqual({ data: [], pagination: { limit: 50, offset: 9007199254740991, hasMore: false, nextOffset: null } });
     expect((await call('/api/v1/messages')).json.pagination).toEqual({ limit: 50, offset: 0, hasMore: false, nextOffset: null });
   });
 
