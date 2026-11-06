@@ -243,6 +243,12 @@ function MailboxList() {
   // When the socket last said a sync finished (mailflow:sync_done), for a manual sync to tell
   // whether its answer came.
   const lastSyncDoneAtRef = useRef(0);
+  const syncTimersRef = useRef([]);
+  const clearSyncTimers = useCallback(() => {
+    syncTimersRef.current.forEach(clearTimeout);
+    syncTimersRef.current = [];
+  }, []);
+  useEffect(() => clearSyncTimers, [clearSyncTimers]);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, message, defaultMoveView?, defaultSnoozeView? }
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchHasMore, setSearchHasMore] = useState(false);
@@ -764,6 +770,7 @@ function MailboxList() {
 
   const handleSync = async () => {
     if (syncing) return;
+    clearSyncTimers();
     setSyncing(true);
     try {
       await api.syncNow(selectedAccountId || undefined);
@@ -773,8 +780,9 @@ function MailboxList() {
       // apply.
       if (shouldSyncFolder({ accountId: selectedAccountId, folder: selectedFolder, force: true })) {
         folderSyncedAtRef.current.set(folderSyncKey(selectedAccountId, selectedFolder), Date.now());
-        api.syncFolder(selectedAccountId, selectedFolder)
-          .catch(err => console.error('syncFolder failed:', err.message));
+        // This request is part of the user's refresh too: report its failure through the
+        // same notice as syncNow, rather than silently leaving the selected folder stale.
+        await api.syncFolder(selectedAccountId, selectedFolder);
       }
       // The server will send sync_complete via WebSocket when done, which triggers
       // mailflow:refresh (list reload) and mailflow:sync_done (spinner off). The sync runs after
@@ -783,13 +791,18 @@ function MailboxList() {
       // for 15 s. With no word from the socket the list is reloaded anyway, twice, since a sync
       // can take a while; the second time the spinner stops.
       const startedAt = Date.now();
-      MANUAL_SYNC_FALLBACK_MS.forEach((delay, i) => setTimeout(() => {
+      MANUAL_SYNC_FALLBACK_MS.forEach((delay, i) => syncTimersRef.current.push(setTimeout(() => {
         if (lastSyncDoneAtRef.current < startedAt) window.dispatchEvent(new CustomEvent('mailflow:refresh'));
         if (i === MANUAL_SYNC_FALLBACK_MS.length - 1) setSyncing(false);
-      }, delay));
+      }, delay)));
     } catch (err) {
       console.error('Sync failed:', err);
+      clearSyncTimers();
       setSyncing(false);
+      addNotification({
+        type: 'error', title: t('messageList.syncFailedTitle'),
+        body: t('messageList.syncFailedBody'), allowWrap: true,
+      });
     }
   };
   // Always keep ref current so touch handlers never go stale
@@ -865,12 +878,13 @@ function MailboxList() {
   useEffect(() => {
     const handler = async () => {
       lastSyncDoneAtRef.current = Date.now();
+      clearSyncTimers();
       setSyncing(true);
-      setTimeout(() => setSyncing(false), 1200);
+      syncTimersRef.current.push(setTimeout(() => setSyncing(false), 1200));
     };
     window.addEventListener('mailflow:sync_done', handler);
     return () => window.removeEventListener('mailflow:sync_done', handler);
-  }, []);
+  }, [clearSyncTimers]);
 
   const isThreadListRow = useCallback((message) => {
     const messageCount = Number.parseInt(message.message_count, 10);
