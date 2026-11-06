@@ -132,20 +132,30 @@ async function apiProbe(expectedMessages, { missing = false } = {}) {
 }
 
 async function checkQueue(cookie) {
+  assert.ok(state.expectedQueue, 'The pre-backup queue identity fixture must exist');
   const rows = (await pool.query('SELECT * FROM webhook_subscriptions')).rows;
   assert.equal(rows.length, 1); assert.equal(rows[0].enabled, false);
+  assert.deepEqual(rows.map(({ id, user_id, account_id, name }) => ({ id, user_id, account_id, name })),
+    [state.expectedQueue.subscription]);
   assert.equal(decrypt(rows[0].target_url), 'http://127.0.0.1:19876/virtual-receiver');
   assert.equal(decrypt(rows[0].signing_secret), state.webhookSecret);
-  const deliveries = (await pool.query('SELECT status,attempts,lease_token,lease_until FROM webhook_deliveries ORDER BY attempts')).rows;
-  assert.deepEqual(deliveries.map(r => [r.status, r.attempts]), [['pending', 0], ['pending', 2], ['failed', 8], ['failed', 8]]);
-  assert.ok(deliveries.every(r => r.lease_token === null && r.lease_until === null));
-  assert.equal((await pool.query('SELECT * FROM webhook_events')).rows.length, 4);
-  assert.equal((await pool.query('SELECT * FROM webhook_mailboxes')).rows.length, 1);
+  const deliveries = (await pool.query(`SELECT id,event_id,subscription_id,status,attempts,next_attempt_at::text,
+    lease_token,lease_until::text,last_error,last_status,delivered_at::text,created_at::text
+    FROM webhook_deliveries ORDER BY id`)).rows;
+  assert.deepEqual(deliveries, state.expectedQueue.deliveries);
+  const events = (await pool.query(`SELECT id,user_id,account_id,message_id,uid_validity::text,uid::text,occurred_at::text
+    FROM webhook_events ORDER BY id`)).rows;
+  assert.deepEqual(events, state.expectedQueue.events);
+  const mailboxes = (await pool.query(`SELECT account_id,uid_validity::text,uid_next::text
+    FROM webhook_mailboxes ORDER BY account_id`)).rows;
+  assert.deepEqual(mailboxes, [state.expectedQueue.mailbox]);
   const list = await call('/api/webhooks', { cookie });
   assert.equal(list.status, 200); assert.equal(list.data.subscriptions[0].enabled, false);
   assert.equal(list.data.subscriptions[0].pending, 2); assert.equal(list.data.subscriptions[0].failed, 2);
-  checked('webhook-four-tables-preserved-paused-claims-normalized-credentials-decrypt-browser-api');
-  result.queue = { subscriptions: 1, enabled: 0, events: 4, mailboxBaselines: 1, pending: 2, failed: 2, leases: 0 };
+  checked('webhook-four-table-identities-relations-event-timestamps-mailbox-baseline-preserved-paused-claims-normalized');
+  checked('webhook-restored-credentials-decrypt-and-browser-management-api');
+  result.queue = { subscriptions: 1, enabled: 0, events: 4, mailboxBaselines: 1, pending: 2, failed: 2, leases: 0,
+    identityAndRelationsVerified: true, eventOccurredAtPreserved: true, mailboxBaselineValuesPreserved: true };
 }
 
 try {
@@ -167,16 +177,33 @@ try {
     await addMessage(upgradedMessage, 2, 'Upgrade synthetic message');
     state.webhookSecret = `mwhsec_${createHash('sha256').update('synthetic-only-receiver-secret').digest('base64url')}`;
     const subscription = randomUUID();
+    state.expectedQueue = {
+      subscription: { id: subscription, user_id: state.userId, account_id: state.accountId, name: 'Virtual restore receiver' },
+      mailbox: { account_id: state.accountId, uid_validity: '1', uid_next: '2' },
+      events: [], deliveries: [],
+    };
     await pool.query(`INSERT INTO webhook_subscriptions (id,user_id,account_id,name,target_url,signing_secret)
       VALUES ($1,$2,$3,'Virtual restore receiver',$4,$5)`,
     [subscription, state.userId, state.accountId, encrypt('http://127.0.0.1:19876/virtual-receiver'), encrypt(state.webhookSecret)]);
     await pool.query('INSERT INTO webhook_mailboxes (account_id,uid_validity,uid_next) VALUES ($1,1,2)', [state.accountId]);
     for (const [i, status, attempts] of [[0, 'pending', 0], [1, 'processing', 2], [2, 'processing', 8], [3, 'failed', 8]]) {
       const event = randomUUID();
-      await pool.query(`INSERT INTO webhook_events (id,user_id,account_id,message_id,uid_validity,uid)
-        VALUES ($1,$2,$3,$4,1,$5)`, [event, state.userId, state.accountId, upgradedMessage, 2 + i]);
-      await pool.query(`INSERT INTO webhook_deliveries (event_id,subscription_id,status,attempts,next_attempt_at,lease_token,lease_until)
-        VALUES ($1,$2,$3,$4,'2099-01-01',$5,$6)`, [event, subscription, status, attempts, status === 'processing' ? randomUUID() : null, status === 'processing' ? '2099-01-01' : null]);
+      const insertedEvent = await pool.query(`INSERT INTO webhook_events (id,user_id,account_id,message_id,uid_validity,uid)
+        VALUES ($1,$2,$3,$4,1,$5) RETURNING occurred_at::text`, [event, state.userId, state.accountId, upgradedMessage, 2 + i]);
+      state.expectedQueue.events.push({ id: event, user_id: state.userId, account_id: state.accountId,
+        message_id: upgradedMessage, uid_validity: '1', uid: String(2 + i), occurred_at: insertedEvent.rows[0].occurred_at });
+      const delivery = randomUUID();
+      const insertedDelivery = await pool.query(`INSERT INTO webhook_deliveries (id,event_id,subscription_id,status,attempts,next_attempt_at,lease_token,lease_until)
+        VALUES ($1,$2,$3,$4,$5,'2099-01-01',$6,$7) RETURNING next_attempt_at::text,created_at::text`,
+      [delivery, event, subscription, status, attempts, status === 'processing' ? randomUUID() : null, status === 'processing' ? '2099-01-01' : null]);
+      state.expectedQueue.deliveries.push({ id: delivery, event_id: event, subscription_id: subscription,
+        status: status === 'processing' ? attempts >= 8 ? 'failed' : 'pending' : status, attempts,
+        next_attempt_at: insertedDelivery.rows[0].next_attempt_at, lease_token: null, lease_until: null,
+        last_error: status === 'processing' && attempts >= 8 ? 'lease_expired' : null,
+        last_status: null, delivered_at: null, created_at: insertedDelivery.rows[0].created_at });
+    }
+    for (const table of ['events', 'deliveries']) {
+      state.expectedQueue[table].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     }
     await save(); checked('candidate-post-old-snapshot-message-webhook-durable-state');
   } else if (mode === 'mutate') {

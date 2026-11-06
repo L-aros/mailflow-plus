@@ -39,17 +39,20 @@ done
 # All runtime checks consume the just-loaded archives, never registry/latest.
 bash scripts/release/drill.sh "mailflow-plus/backend:sha-$sha" "mailflow-plus/frontend:sha-$sha" \
   "mailflow-plus/backend:sha-$baseline" "mailflow-plus/frontend:sha-$baseline" "$out/validation/drill"
-bash scripts/release/backup-smoke.sh "mailflow-plus/backend:sha-$sha" "mailflow-plus/frontend:sha-$sha" "$out/validation/backup-smoke"
-bash scripts/release/backup-smoke.sh "mailflow-plus/backend:sha-$baseline" "mailflow-plus/frontend:sha-$baseline" "$out/validation/backup-smoke-baseline"
 docker image inspect postgres:16-alpine redis:7-alpine > "$out/validation/dependencies.inspect.json"
 docker save --output "$out/dependencies.docker.tar" postgres:16-alpine redis:7-alpine
 cp docker-compose.yml docker-compose.https.yml docker-compose.plus*.yml Caddyfile "$out/"
 cp .env.example "$out/env.example"
 if [[ -f .env.plus.example ]]; then cp .env.plus.example "$out/env.plus.example"; fi
 mkdir -p "$out/scripts/release"
-cp scripts/release/backup.sh scripts/release/restore.sh "$out/scripts/release/"
+cp scripts/release/backup.sh scripts/release/restore.sh scripts/release/backup-smoke.sh "$out/scripts/release/"
 cp LICENSE LICENSE-COMMERCIAL "$out/"
 cp docs/release*.md "$out/"
+# Exercise only the exported deployment directory, including its relative extends
+# and scripts. This must work without reaching back into the source checkout.
+docker load --input "$out/dependencies.docker.tar"
+(cd "$out" && bash scripts/release/backup-smoke.sh "mailflow-plus/backend:sha-$sha" "mailflow-plus/frontend:sha-$sha" "$out/validation/backup-smoke")
+(cd "$out" && bash scripts/release/backup-smoke.sh "mailflow-plus/backend:sha-$baseline" "mailflow-plus/frontend:sha-$baseline" "$out/validation/backup-smoke-baseline")
 python3 scripts/release/manifest.py "$out" "$sha" "$baseline" "$version"
 (cd "$out" && sha256sum --check SHA256SUMS)
 
