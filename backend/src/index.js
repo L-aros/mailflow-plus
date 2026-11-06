@@ -40,6 +40,8 @@ import senderFaviconsRoutes from './routes/senderFavicons.js';
 import diagnosticsRoutes from './routes/diagnostics.js';
 import backupRoutes from './routes/backup.js';
 import apiTokenRoutes from './routes/apiTokens.js';
+import webhookRoutes, { webhookRequestErrorHandler } from './routes/webhooks.js';
+import { createWebhookWorker } from './services/webhooks.js';
 import spamRoutes, { accountSpamRouter } from './routes/spam.js';
 import carddavRouter from './routes/carddav.js';
 import carddavAccountRouter from './routes/carddavAccount.js';
@@ -141,6 +143,9 @@ app.use((req, res, next) => {
 // header check, the screen lock and the token guards, in that order (middleware/apiChain.js, so
 // the tests run the same chain).
 mountApiAuth(app, sessionMiddleware);
+// A JSON parser error can carry the original secret-bearing body. Sanitize it
+// before the application's global error logger sees it.
+app.use('/api/webhooks', webhookRequestErrorHandler);
 
 // Make imap manager available globally
 export const imapManager = new ImapManager(wss);
@@ -152,6 +157,7 @@ setMailEngine(imapManager);
 // Routes
 app.use('/api/v1', apiV1Routes);
 app.use('/api/v1', apiV1ErrorHandler);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/oidc', oidcApiRouter);
 app.use('/auth/oidc', oidcBrowserRouter);
@@ -256,6 +262,10 @@ imapManager.startSnoozeWatcher();
 // process left unfinished, before it claims anything.
 startScheduledSender();
 
+// Durable outbox recovery is independent of IMAP, push and plugin activation.
+const webhookWorker = createWebhookWorker();
+webhookWorker.start();
+
 // Schedule periodic CardDAV contact sync for any connected accounts.
 startCardavScheduler();
 
@@ -291,13 +301,14 @@ httpServer.listen(PORT, () => {
 });
 
 function exitAfterClose(code, { wsCode = 1001, wsReason = 'Shutting down' } = {}) {
+  const webhooksStopped = webhookWorker.stop();
   // A send held for its undo window lives only in this process: it is delivered now rather than
   // lost with the restart, and the scheduled sender's sends in flight finish (sendShutdown.js).
   shutDown({
     code,
     httpServer,
     closeClients: () => closeWebSocketClients(wss, wsCode, wsReason),
-    quit: () => redisClient.quit(),
+    quit: async () => { await webhooksStopped; return redisClient.quit(); },
     exit: c => process.exit(c),
   });
 }

@@ -121,6 +121,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (one && method === 'DELETE') return server.revoke(decodeURIComponent(one[1]));
   if (path === '/api/admin/settings') return method === 'PATCH' ? server.patchSettings(body) : json({ settings: {} });
   // What the Security tab's other cards read.
+  if (path === '/api/webhooks' && method === 'GET') return json({ subscriptions: [] });
   if (path.startsWith('/api/admin/auth-events?')) return json({ events: server.events, total: server.events.length });
   if (path === '/api/auth/profile/recovery-email') return json({ email: null });
   if (path === '/api/auth/oidc/identities') return json({ identities: [] });

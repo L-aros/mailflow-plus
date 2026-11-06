@@ -73,6 +73,8 @@ describe.skipIf(!ADMIN_URL)('scheduled messages schema on PostgreSQL (#543)', ()
     vi.restoreAllMocks();
   });
 
+  // This runs a fresh migration chain, an upgrade from 0070 and an idempotency pass
+  // across two databases. Bound the DDL work apart from Vitest's 5 s unit default.
   it('applies on a fresh database and on one at 0070, to the same schema, and again as a no-op', async () => {
     use(freshDb);
     h.upTo = null;
@@ -106,7 +108,7 @@ describe.skipIf(!ADMIN_URL)('scheduled messages schema on PostgreSQL (#543)', ()
       'FOREIGN KEY (scheduled_id) REFERENCES scheduled_messages(id) ON DELETE CASCADE',
       'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
     ]);
-  });
+  }, 30_000);
 
   const insertMessage = (over = {}) => {
     const row = {

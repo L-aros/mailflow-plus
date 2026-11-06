@@ -49,6 +49,7 @@ import SpamSettings from './SpamSettings.jsx';
 import BackupSettings from './BackupSettings.jsx';
 import PasswordInput from './PasswordInput.jsx';
 import ApiTokensSection from './ApiTokensSection.jsx';
+import WebhooksSection from './WebhooksSection.jsx';
 
 // ─── Shared field component ───────────────────────────────────────────────────
 function Field({ label, required, children }) {
@@ -8151,6 +8152,7 @@ function SecurityTab() {
       </div>
 
       <ApiTokensSection />
+      <WebhooksSection />
 
       {/* MFA enforcement — admin only */}
       {user?.isAdmin && (

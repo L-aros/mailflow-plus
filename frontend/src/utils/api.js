@@ -273,6 +273,16 @@ export const api = {
     revoke: (id) => request('DELETE', `/api-tokens/${encodeURIComponent(id)}`),
   },
 
+  webhooks: {
+    list: () => request('GET', '/webhooks'),
+    create: (data) => request('POST', '/webhooks', data),
+    update: (id, data) => request('PATCH', `/webhooks/${encodeURIComponent(id)}`, data),
+    delete: (id) => request('DELETE', `/webhooks/${encodeURIComponent(id)}`),
+    rotate: (id) => request('POST', `/webhooks/${encodeURIComponent(id)}/rotate`, {}),
+    deliveries: (id, options = {}) => request('GET', `/webhooks/${encodeURIComponent(id)}/deliveries${Object.keys(options).length ? '?' + new URLSearchParams(options) : ''}`),
+    retry: (id, deliveryId) => request('POST', `/webhooks/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}/retry`, {}),
+  },
+
   // Admin
   admin: {
     getUsers: (params) => request('GET', '/admin/users' + (params ? '?' + new URLSearchParams(params) : '')),
