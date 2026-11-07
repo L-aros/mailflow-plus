@@ -6,6 +6,7 @@ import { PluginSlot } from '../plugins/PluginSlot.jsx';
 import { newAiAction, AI_ACTION_LIMITS } from '../aiActions.js';
 import { useMobile } from '../hooks/useMobile.js';
 import { api } from '../utils/api.js';
+import { FRONTEND_SHA, FRONTEND_SOURCE_URL } from '../utils/buildInfo.js';
 import { spamApi } from '../utils/spamApi.js';
 import { copyToClipboard } from '../utils/clipboard.js';
 import { isValidFromValue } from '../utils/defaultSender.js';
@@ -5847,16 +5848,16 @@ function AboutTab() {
       .catch(() => setInfo({ version: '—', sha: '—' }));
   }, []);
 
-  const feSha = import.meta.env.VITE_BUILD_SHA || 'dev';
   const infoRows = [
     [t('admin.about.version'),       info ? info.version : '…'],
     [t('admin.about.backendBuild'),  info ? info.sha     : '…'],
-    [t('admin.about.frontendBuild'), feSha],
-    [t('admin.about.license'),       'AGPL-3.0'],
+    [t('admin.about.frontendBuild'), FRONTEND_SHA],
+    [t('admin.about.license'),       'LICENSE: AGPL-3.0; frontend/package.json: GPL-3.0'],
   ];
   const generalRows = [
     [t('admin.about.website'),    'https://mailflow.sh'],
-    [t('admin.about.sourceCode'), 'https://github.com/maathimself/mailflow'],
+    [`${t('admin.about.sourceCode')} (${t('admin.about.backendBuild')})`, info?.sourceUrl || 'https://github.com/L-aros/mailflow-plus'],
+    [`${t('admin.about.sourceCode')} (${t('admin.about.frontendBuild')})`, FRONTEND_SOURCE_URL],
   ];
   const supportRows = [
     [t('admin.about.kofi'),           'https://ko-fi.com/mailflow'],
@@ -5865,7 +5866,7 @@ function AboutTab() {
   ];
 
   const rowStyle = (last) => ({
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
     padding: '11px 14px', background: 'var(--bg-secondary)',
     borderBottom: last ? 'none' : '1px solid var(--border-subtle)',
   });
@@ -5873,7 +5874,7 @@ function AboutTab() {
   return (
     <div style={{ maxWidth: 420 }}>
       <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-        MailFlow
+        MailFlow Plus
       </div>
       <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
         {t('admin.about.subtitle')}
@@ -5882,7 +5883,7 @@ function AboutTab() {
         {infoRows.map(([label, value], i) => (
           <div key={label} style={rowStyle(i === infoRows.length - 1)}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{label}</span>
-            <span style={{ fontSize: 12, color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '0.02em' }}>{value}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '0.02em', overflowWrap: 'anywhere', minWidth: 0, textAlign: 'right' }}>{value}</span>
           </div>
         ))}
       </div>
@@ -5891,7 +5892,7 @@ function AboutTab() {
           <div key={label} style={rowStyle(i === generalRows.length - 1)}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{label}</span>
             <a href={href} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none' }}
+              style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', overflowWrap: 'anywhere', minWidth: 0, textAlign: 'right' }}
             >{href.replace('https://', '')}</a>
           </div>
         ))}

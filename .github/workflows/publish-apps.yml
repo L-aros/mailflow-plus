@@ -26,8 +26,6 @@ name: Publish Apps
 #
 # The native security items from #301 landed in #323 and #346.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -55,6 +53,8 @@ jobs:
   # here because the secrets context is not available in a job-level `if`.
   setup:
     name: Resolve build scope
+    # Plus has no approved native signing/release target; keep this disabled.
+    if: github.repository == 'maathimself/mailflow'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.os }}

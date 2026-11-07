@@ -9,7 +9,7 @@
 // itself but not identifiable or cross-referenceable between reports.
 
 import crypto from 'crypto';
-import { readFileSync } from 'fs';
+import { APP_VERSION, BUILD_INFO } from './buildInfo.js';
 import { query } from './db.js';
 import { redisClient } from './redis.js';
 import { loadAiConfig } from './aiProvider.js';
@@ -18,8 +18,6 @@ import { getWarningsRaw, getConnectionStats, getSyncSignalsRaw } from './diagnos
 import { getPerformanceSnapshot } from './performanceMetrics.js';
 import { scheduledSendReport } from './scheduledSendStatus.js';
 
-const packageMeta = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'));
-const BACKEND_VERSION = (process.env.APP_VERSION || packageMeta.version || '0.0.0').replace(/^v[.]?/, '');
 
 // Salted, truncated hash. Same (id, salt) -> same ref within one report; a
 // different salt (i.e. a different report) -> a different ref. Not reversible.
@@ -219,7 +217,7 @@ export async function buildServerReport(userId, salt) {
   try { scheduledSend = await scheduledSendReport(userId); } catch { /* leave null */ }
 
   return {
-    versions: { backend: BACKEND_VERSION, gitSha: process.env.BUILD_SHA || 'dev' },
+    versions: { backend: APP_VERSION, gitSha: BUILD_INFO.sha },
     server: { uptimeSeconds: Math.round(process.uptime()), dbOk, redisOk },
     accounts,
     folders,

@@ -6,3 +6,10 @@
 certs
 *.local
 .git
+**/.git
+**/coverage
+backups
+**/*.dump
+**/*.age
+**/*.key
+**/*.pem

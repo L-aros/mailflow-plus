@@ -4,6 +4,7 @@ import { useStore } from '../store/index.js';
 import { api } from '../utils/api.js';
 import LogoMark from './LogoMark.jsx';
 import PasswordInput from './PasswordInput.jsx';
+import { FRONTEND_SOURCE_URL } from '../utils/buildInfo.js';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -977,6 +978,10 @@ export default function LoginPage() {
           )}
         </div>
 
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12 }}>
+          <a href={FRONTEND_SOURCE_URL} target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--accent)' }}>MailFlow Plus · {t('admin.about.sourceCode')}</a>
+        </p>
         {!totpRequired && showToggle && (
           <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-tertiary)' }}>
             {mode === 'login' ? t('login.dontHaveAccount') : t('login.alreadyHaveAccount')}

@@ -4,7 +4,6 @@ import session from 'express-session';
 import cors from 'cors';
 import { corsExceptDav } from './middleware/corsExceptDav.js';
 import { createServer } from 'http';
-import { readFileSync } from 'fs';
 import RedisStore from 'connect-redis';
 import 'dotenv/config';
 import { redisClient } from './services/redis.js';
@@ -54,18 +53,12 @@ import { reloadAuthSettings } from './services/authLimiter.js';
 import { closeWebSocketClients, createWebSocketServer, setupWebSocket } from './services/websocket.js';
 import { ImapManager } from './services/imapManager.js';
 import { getUpdateStatus } from './services/updateCheck.js';
+import { APP_VERSION, BUILD_INFO } from './services/buildInfo.js';
 import { recordHttp } from './services/performanceMetrics.js';
 import { shutDown } from './services/sendShutdown.js';
 import { startScheduledSender } from './services/scheduledSend.js';
 
-const packageMeta = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
-let buildMeta = {};
-try {
-  buildMeta = JSON.parse(readFileSync(new URL('../build-meta.json', import.meta.url), 'utf-8'));
-} catch {
-  // Local dev runs may not have build metadata yet.
-}
-export const APP_VERSION = (process.env.APP_VERSION || buildMeta.version || packageMeta.version).replace(/^v[.]?/, '');
+export { APP_VERSION };
 
 const app = express();
 // Trust the nginx reverse proxy so req.secure reflects HTTPS correctly.
@@ -203,7 +196,7 @@ app.use('/carddav', carddavRouter);
 app.all('/.well-known/carddav', (req, res) => res.redirect(308, '/carddav/'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION, sha: process.env.BUILD_SHA || 'dev' }));
+app.get('/api/version', (_req, res) => res.json(BUILD_INFO));
 // Server-side update check (#261). Cached in updateCheck.js so repeated hits never
 // re-query GitHub; the browser only talks to MailFlow. Never throws into the response.
 app.get('/api/update', async (_req, res) => {

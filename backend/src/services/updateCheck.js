@@ -7,7 +7,7 @@
 // UPDATE_CHECK_DISABLED=true to turn the check off entirely (air-gapped deployments).
 import { safeFetch } from './safeFetch.js';
 
-const REPO = (process.env.UPDATE_CHECK_REPO || 'maathimself/mailflow').replace(/[^\w./-]/g, '');
+const REPO = (process.env.UPDATE_CHECK_REPO || 'L-aros/mailflow-plus').replace(/[^\w./-]/g, '');
 const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 export const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
 
