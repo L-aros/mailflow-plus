@@ -229,9 +229,13 @@ printf '{"ok":true,"elapsedSeconds":%s,"schemaBefore":"0075_gmail_provider_msgid
 fixture upgrade-data candidate-data
 fixture download builtin-download
 for scope in full setup; do
-  age -r "$recipient" -o "$private/fixtures/candidate-$scope.json.gz.age" "$private/fixtures/candidate-$scope.json.gz"
-  age -d -i "$private/keys/identity.txt" -o "$private/fixtures/candidate-$scope.verified.json.gz" "$private/fixtures/candidate-$scope.json.gz.age"
-  cmp "$private/fixtures/candidate-$scope.json.gz" "$private/fixtures/candidate-$scope.verified.json.gz"
+  # The fixture runs as container root and creates a 0600 backup on the bind
+  # mount. Copy it through Docker so the runner owns the private host copy;
+  # leave the original permissions intact for the later in-container restore.
+  docker cp "$backend:/drill/candidate-$scope.json.gz" "$private/snapshots/builtin-$scope.json.gz"
+  age -r "$recipient" -o "$private/snapshots/builtin-$scope.json.gz.age" "$private/snapshots/builtin-$scope.json.gz"
+  age -d -i "$private/keys/identity.txt" -o "$private/snapshots/builtin-$scope.verified.json.gz" "$private/snapshots/builtin-$scope.json.gz.age"
+  cmp "$private/snapshots/builtin-$scope.json.gz" "$private/snapshots/builtin-$scope.verified.json.gz"
 done
 printf '{"ok":true,"scopes":["full","setup"],"encryption":"age","decryptByteComparison":true,"publishedBackup":false}\n' >"$output/builtin-encryption.json"
 record_runtime candidate
