@@ -62,8 +62,8 @@ async function addMessage(id, uid, subject) {
   // Seed an explicit parsed-mail cache fixture. Mail ingress/parser behavior is
   // covered by the existing sync tests; this drill verifies preservation.
   await pool.query(`INSERT INTO messages (id,account_id,uid,folder,message_id,subject,from_name,from_email,date,snippet,body_text,thread_id)
-    VALUES ($1,$2,$3,'INBOX',$4,$5,'Virtual Sender','sender@example.test',$6,$7,$7,$4)`,
-  [id, state.accountId, uid, `<release-${uid}@example.test>`, subject, '2026-11-07T00:00:00Z', `Synthetic restore body ${uid}.`]);
+    VALUES ($1,$2,$3,'INBOX',$4,$5,'Virtual Sender','sender@example.test',$6,$7,$7,$8)`,
+  [id, state.accountId, uid, `<release-${uid}@example.test>`, subject, '2026-11-07T00:00:00Z', `Synthetic restore body ${uid}.`, `<release-${uid}@example.test>`]);
 }
 
 // Prove restored ciphertext authenticates a REAL imapflow connection to a local
