@@ -32,6 +32,8 @@ json.dump({'suite': 'generic-compose-backup-restore', 'ok': int(result)==0, 'exi
            'elapsedSeconds': int(time.time())-int(start), 'lastStep': last_step,
            'paths': {'sameSchema': same_schema, 'freshSchema': fresh_schema},
            'pathElapsedSeconds': {'sameSchema': int(same_seconds), 'freshSchema': int(fresh_seconds)},
+           'httpAccess': 'Linux runner host directly to the project internal frontend IP; requested loopback port publication is not used',
+           'networkEvidence': 'compose-network.json',
            'checks': ['compose-plus-no-official-image-fallback', 'actual-images-health', 'synthetic-user-login',
                       'age-encrypt-decrypt-byte-verification', 'pg-dump-restore-marker', 'persistent-file-restored',
                       'post-snapshot-files-removed', 'restored-cache-writable', 'old-session-rejected-401',
@@ -65,19 +67,56 @@ networks:
 YAML
 last_step=compose-config-and-start
 "${compose[@]}" config --quiet
+"${compose[@]}" config --format json > "$stage/compose-private.json"
 "${compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180
 frontend=$("${compose[@]}" ps -q frontend)
 backend=$("${compose[@]}" ps -q backend)
 postgres=$("${compose[@]}" ps -q postgres)
-address=$(docker port "$frontend" 80/tcp | head -n 1)
-export MAILFLOW_SMOKE_URL="http://$address"
+# Docker does not publish host ports for an internal-only bridge endpoint on
+# the runner. Keep egress isolation and make real HTTP requests to that frontend
+# IP from the Linux Docker host, which can reach its internal bridge directly.
+docker inspect --format '{{json .HostConfig.PortBindings}}' "$frontend" > "$stage/host-port-bindings.json"
+docker inspect --format '{{json .NetworkSettings}}' "$frontend" > "$stage/frontend-network.json"
+docker network inspect "${MAILFLOW_PROJECT}_mailflow" > "$stage/internal-network.json"
+export MAILFLOW_SMOKE_URL
+MAILFLOW_SMOKE_URL=$(python3 - "$stage" "$public_output/compose-network.json" "$MAILFLOW_PROJECT" "$frontend" <<'PY'
+import ipaddress, json, pathlib, sys
+stage=pathlib.Path(sys.argv[1])
+config=json.load((stage/'compose-private.json').open())
+settings=json.load((stage/'frontend-network.json').open())
+network=json.load((stage/'internal-network.json').open())[0]
+name=sys.argv[3]+'_mailflow'
+assert network['Name']==name and network['Internal'] is True and network['Driver']=='bridge'
+assert set(settings['Networks'])=={name}, 'Frontend must have only the project internal network.'
+endpoint=settings['Networks'][name]
+assert endpoint['NetworkID']==network['Id']
+address=ipaddress.ip_address(endpoint['IPAddress'])
+assert address.version==4 and not address.is_loopback and not address.is_unspecified
+subnets=[ipaddress.ip_network(item['Subnet']) for item in network['IPAM']['Config'] if item.get('Subnet')]
+assert any(address in subnet for subnet in subnets), 'Frontend IP must belong to the inspected internal subnet.'
+assert ipaddress.ip_interface(network['Containers'][sys.argv[4]]['IPv4Address']).ip==address
+bindings=json.load((stage/'host-port-bindings.json').open())
+for port in ('80/tcp','443/tcp'):
+    assert bindings[port] and all(item['HostIp']=='127.0.0.1' for item in bindings[port])
+actual=settings.get('Ports') or {}
+json.dump({'accessMode':'linux-host-to-internal-frontend-ip',
+           'composeFrontendPorts':config['services']['frontend']['ports'],
+           'hostConfigPortBindings':bindings, 'networkSettingsPorts':actual,
+           'hostPortsActuallyPublished':any(actual.values()),
+           'network':{'name':name,'internal':True,'driver':network['Driver'],
+                      'subnets':[str(subnet) for subnet in subnets],'frontendIp':str(address)},
+           'note':'Loopback ports are requested by the deployment entry, but internal-only runner networking does not publish them; HTTP uses the frontend internal IP.'},
+          open(sys.argv[2],'w'),indent=2)
+print(f'http://{address}:80')
+PY
+)
 last_step=synthetic-user-registration
 python3 - "$stage/password.txt" "$stage/old-session.cookies" <<'PY'
 import http.cookiejar, json, os, pathlib, sys, urllib.request
 password = pathlib.Path(sys.argv[1]).read_text()
 base = os.environ['MAILFLOW_SMOKE_URL']
 jar = http.cookiejar.LWPCookieJar(sys.argv[2])
-opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(jar))
 for action in ('register', 'login'):
     request = urllib.request.Request(base+'/api/auth/'+action,
         data=json.dumps({'username':'backup-smoke','password':password}).encode(),
@@ -119,15 +158,18 @@ import http.cookiejar, json, os, pathlib, sys, urllib.error, urllib.request
 base=os.environ['MAILFLOW_SMOKE_URL']
 old=http.cookiejar.LWPCookieJar(sys.argv[2])
 old.load(ignore_discard=True, ignore_expires=True)
-old_opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(old))
+old_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(old))
+old_request=urllib.request.Request(base+'/api/auth/me')
+old.add_cookie_header(old_request)
+assert old_request.get_header('Cookie'), 'The saved old session cookie must actually be sent.'
 try:
-    old_opener.open(base+'/api/auth/me', timeout=30)
+    old_opener.open(old_request, timeout=30)
 except urllib.error.HTTPError as error:
     assert error.code == 401, f'Old session returned {error.code}, expected 401.'
 else:
     raise AssertionError('Restored old session remained authorized.')
 jar=http.cookiejar.CookieJar()
-opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(jar))
 with opener.open(base+'/api/health', timeout=30) as response: assert response.status==200
 request=urllib.request.Request(base+'/api/auth/login',
     data=json.dumps({'username':'backup-smoke','password':pathlib.Path(sys.argv[1]).read_text()}).encode(),

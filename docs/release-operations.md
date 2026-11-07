@@ -76,7 +76,11 @@ docker compose -p mailflow-plus --env-file .env -f docker-compose.plus.yml \
   up -d --no-build --pull never --wait --wait-timeout 180
 ```
 
-The Plus example binds HTTP/HTTPS to localhost on 8080/8443. Its self-signed HTTPS
+The normal, non-internal Plus entry requests HTTP/HTTPS bindings to localhost on
+8080/8443. Inspect `docker compose port frontend 80` / `docker compose port frontend
+443` and test the intended host URLs on the deployment host to verify its actual
+port publishing. The internal-only CI smoke cannot validate that host-publication
+path. Its self-signed HTTPS
 certificate is for local initialization, not public trusted HTTPS. Do not copy
 `APP_PORT=443` / `APP_HTTP_PORT=80` from the upstream example unnoticed: those values
 bind on all interfaces. A future authorized registry installation can set each
@@ -212,7 +216,13 @@ Keep the source installation stopped or otherwise prevent duplicate external
 effects. Select a fresh isolated Compose project and dedicated database/Redis.
 Block external egress while inspecting recovery; do not attach real mailbox
 credentials to a rehearsal. The provided smoke overlay uses a Docker network with
-`internal: true` and localhost-only dynamic ports.
+`internal: true`. It retains the entry's loopback port requests for configuration
+evidence, but Docker's internal-only endpoint on the runner does not actually
+publish them. The Linux runner sends real HTTP to the frontend's inspected IP in
+that project network, after verifying its network ID and subnet. Its sanitized
+`compose-network.json` records Compose requests, `HostConfig.PortBindings` and
+`NetworkSettings.Ports`. This exercises the isolated frontend/API and session
+restore; it does not establish that host-port publishing was tested.
 
 Decrypt the configuration package to a private directory first. It contains the
 matched `.env`, resolved configuration and original runtime inspections. Restore
